@@ -1,5 +1,5 @@
 
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Navbar from "./components/Navbar.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
@@ -32,7 +32,6 @@ export default function App() {
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<Home />} />
-        <Route path="/home" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
@@ -41,7 +40,10 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/assessment" element={<FitnessAssessment />} />
           <Route path="/activity" element={<ActivityTracker />} />
-          <Route path="/routes" element={<RunningRoutes />} />
+          <Route
+            path="/routes"
+            element={<Placeholder title="Running Routes" />}
+          />
           <Route path="/running-routes" element={<RunningRoutes />} />
           <Route path="/coach" element={<AICoach />} />
         </Route>
