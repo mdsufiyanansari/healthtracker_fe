@@ -1,40 +1,28 @@
 
 import axios from "axios";
 
-// ========================================
-// API CONFIGURATION
-// ========================================
-
+// API base URL
 const api = axios.create({
-  baseURL: (
-    import.meta.env.VITE_API_URL || "http://localhost:4000/api"
-  ).replace(/\/+$/, ""),
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:4000/api",
   headers: {
     "Content-Type": "application/json",
   },
   timeout: 30000,
 });
-console.log("VITE_API_URL:", import.meta.env.VITE_API_URL);
-console.log("Axios baseURL:", api.defaults.baseURL);
 
-// ========================================
-// AUTHENTICATION
-// ========================================
-
+// Get authentication token
 function getAuthToken() {
   return sessionStorage.getItem("token");
 }
 
+// Add token to every request automatically
 api.interceptors.request.use(
   (config) => {
     const token = getAuthToken();
 
-    config.headers = config.headers || {};
-
     if (token) {
+      config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
-    } else {
-      delete config.headers.Authorization;
     }
 
     return config;
@@ -42,26 +30,19 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ========================================
-// CENTRALIZED ERROR HANDLING
-// ========================================
-
+// Handle API errors in one place
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (!error.response) {
-      const baseURL = error.config?.baseURL || "";
-      const requestURL = error.config?.url || "";
-
       error.message =
-        `Backend se connection nahi ho pa raha. ` +
-        `URL: ${baseURL}${requestURL}. ` +
-        "Backend URL, server status aur CORS check karo.";
+        "Server se connection nahi ho pa raha. Backend check karo.";
     } else {
       const status = error.response.status;
       const serverMessage = error.response.data?.message;
 
       if (status === 401) {
+        // Invalid/expired token or unauthorized request
         sessionStorage.removeItem("token");
       }
 
@@ -74,11 +55,7 @@ api.interceptors.response.use(
           : status === 403
           ? "Aapko is action ki permission nahi hai."
           : status === 404
-          ? "API endpoint nahi mila. Backend route check karo."
-          : status === 413
-          ? "Request bahut badi hai."
-          : status === 429
-          ? "Bahut zyada requests. Thodi der baad try karo."
+          ? "API endpoint nahi mila."
           : status >= 500
           ? "Backend server mein problem hai."
           : error.message);
@@ -88,9 +65,9 @@ api.interceptors.response.use(
   }
 );
 
-// ========================================
+// -------------------------
 // AUTH APIs
-// ========================================
+// -------------------------
 
 export async function registerUser(data) {
   const response = await api.post("/auth/register", data);
@@ -122,9 +99,9 @@ export async function getCurrentUser() {
   return response.data;
 }
 
-// ========================================
+// -------------------------
 // WORKOUT / ASSESSMENT APIs
-// ========================================
+// -------------------------
 
 export async function generateWorkoutPlan(data) {
   const response = await api.post("/assessments", data);
@@ -140,22 +117,21 @@ export async function getWorkoutPlanById(id) {
   const response = await api.get(
     `/assessments/${encodeURIComponent(id)}`
   );
-
   return response.data;
 }
 
-// ========================================
+// -------------------------
 // DASHBOARD API
-// ========================================
+// -------------------------
 
 export async function getDashboard() {
   const response = await api.get("/dashboard");
   return response.data;
 }
 
-// ========================================
+// -------------------------
 // ACTIVITY APIs
-// ========================================
+// -------------------------
 
 export async function getActivities(params = {}) {
   const response = await api.get("/activities", { params });
@@ -166,7 +142,6 @@ export async function getActivityById(id) {
   const response = await api.get(
     `/activities/${encodeURIComponent(id)}`
   );
-
   return response.data;
 }
 
@@ -180,7 +155,6 @@ export async function updateActivity(id, data) {
     `/activities/${encodeURIComponent(id)}`,
     data
   );
-
   return response.data;
 }
 
@@ -188,13 +162,12 @@ export async function deleteActivity(id) {
   const response = await api.delete(
     `/activities/${encodeURIComponent(id)}`
   );
-
   return response.data;
 }
 
-// ========================================
+// -------------------------
 // RUNNING ROUTES APIs
-// ========================================
+// -------------------------
 
 export async function getRunningRoutes(params = {}) {
   const response = await api.get("/routes", { params });
@@ -205,61 +178,20 @@ export async function getRunningRouteById(id) {
   const response = await api.get(
     `/routes/${encodeURIComponent(id)}`
   );
-
   return response.data;
 }
 
-export async function createRunningRoute(data) {
-  const response = await api.post("/routes", data);
+// -------------------------
+// FITNESS COACH API
+// -------------------------
+
+export async function askFitnessCoach(message) {
+  const response = await api.post("/coach", { message });
   return response.data;
 }
 
-export async function deleteRunningRoute(id) {
-  const response = await api.delete(
-    `/routes/${encodeURIComponent(id)}`
-  );
-
-  return response.data;
-}
-
-// ========================================
-// MULTILINGUAL FITNESS COACH API
-// ========================================
-
-export async function askFitnessCoach(message, history = []) {
-  if (typeof message !== "string" || !message.trim()) {
-    throw new Error("Please apna question likho.");
-  }
-
-  const response = await api.post("/coach/chat", {
-    message: message.trim(),
-    history: history
-      .filter(
-        (item) =>
-          item &&
-          ["user", "assistant"].includes(item.role) &&
-          typeof item.content === "string"
-      )
-      .slice(-10)
-      .map(({ role, content }) => ({ role, content })),
-  });
-
-  const reply =
-    response.data?.reply ||
-    response.data?.data?.reply;
-
-  if (typeof reply !== "string" || !reply.trim()) {
-    throw new Error("AI coach se valid reply nahi mila.");
-  }
-
-  return {
-    ...response.data,
-    reply: reply.trim(),
-  };
-}
-
-// ========================================
+// -------------------------
 // DEFAULT EXPORT
-// ========================================
+// -------------------------
 
 export default api;
