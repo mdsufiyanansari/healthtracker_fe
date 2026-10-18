@@ -11,7 +11,7 @@ import {
   ArrowRight,
   LoaderCircle,
 } from "lucide-react";
-import { registerUser } from "../services/api";
+import { registerUser, loginUser } from "../services/api";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -75,31 +75,54 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      // Register user using the shared API service
-      await registerUser({
+      // 1) Create the account.
+      const registration = await registerUser({
         name,
         email,
         password: form.password,
       });
 
-      // Registration successful: registration is not the same as login.
-      // Clear any stale token so the user signs in with the new account.
-      sessionStorage.removeItem("token");
+      // 2) If registration did not return a JWT, log in immediately.
+      // loginUser() stores a top-level response.data.token via api.js.
+      let token =
+        registration?.token ||
+        registration?.accessToken ||
+        registration?.data?.token ||
+        sessionStorage.getItem("token");
 
-      // Redirect to Login and show a success message there.
-      navigate("/home", {
-        replace: true,
-        state: {
-          message: "Registration successful! Please login to continue.",
-        },
-      });
+      if (!token) {
+        // Remove any stale token before authenticating the new account.
+        sessionStorage.removeItem("token");
+        const loginResult = await loginUser({
+          email,
+          password: form.password,
+        });
+
+        token =
+          loginResult?.token ||
+          loginResult?.accessToken ||
+          loginResult?.data?.token ||
+          sessionStorage.getItem("token");
+      }
+
+      if (!token) {
+        throw new Error(
+          "Account created, but the server did not return an authentication token. Please check the login API response."
+        );
+      }
+
+      // 3) Ensure the token is stored before navigating to Home.
+      sessionStorage.setItem("token", token);
+      navigate("/", { replace: true });
     } catch (err) {
       const status = err.response?.status;
       const message =
         err.response?.data?.message ||
         err.response?.data?.error;
 
-      if (!err.response) {
+      if (!err.response && err.message) {
+        setError(err.message);
+      } else if (!err.response) {
         setError("Cannot connect to server. Please check your backend.");
       } else if (status === 409) {
         setError(message || "This email is already registered.");
